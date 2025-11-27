@@ -6,6 +6,9 @@ export interface IFlashcard {
   definition: string; // Nghĩa (VD: Xin chào)
   phonetic?: string;  // Phiên âm
   type?: string;      // Loại từ (noun, verb...)
+  level?: string;     // Mức độ
+  note?: string;      // Ghi chú
+  examples?: Array<{ en?: string; vi?: string }>; // Ví dụ
   status: 'new' | 'learning' | 'learned'; // Để tính toán cho UI
 }
 
@@ -25,6 +28,14 @@ const FlashcardSchema = new Schema<IFlashcard>({
   definition: { type: String, required: true },
   phonetic: { type: String },
   type: { type: String },
+  level: { type: String }, // <-- Mới
+  note: { type: String },  // <-- Mới
+  examples: [              // <-- Mới (Mảng object)
+    {
+      en: { type: String },
+      vi: { type: String }
+    }
+  ],
   status: { type: String, enum: ['new', 'learning', 'learned'], default: 'new' }
 });
 
