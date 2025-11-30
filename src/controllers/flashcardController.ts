@@ -160,3 +160,24 @@ export const addCardToSet = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error adding card", error: error.message });
     }
 };
+
+
+//6 Delete Cards 
+export const deleteCards = async (req: Request, res: Response) => {
+    try {
+        const { setId, cardId } = req.params;
+        const updatedSet = await FlashcardSet.findByIdAndUpdate(
+            setId,
+            { $pull: { cards: { _id: cardId } } },
+            { new: true }
+        )
+        if (!updatedSet) {
+            return res.status(404).json({ message: "Không tìm thấy bộ thẻ" })
+        }
+        res.json({ message: "Xóa thẻ thành công", set: updatedSet })
+    } catch (error) {
+        console.log("🚀 ~ DeleteCards ~ error:", error)
+        res.status(500).json({ message: "Lỗi server" })
+
+    }
+}
