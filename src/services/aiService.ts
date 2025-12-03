@@ -60,3 +60,67 @@ export const generateFlashcardContent = async (inputWord: string) => {
     throw error;
   }
 };
+
+
+// quiz
+// Thêm vào src/services/aiService.ts
+
+interface QuizConfig {
+  topic?: string;
+  description?: string;
+  textInput?: string; // Dùng cho Option 2 & 3 (Nội dung văn bản/file)
+  count: number;
+  difficulty: string;
+  language: string; // 'vi'
+}
+
+export const generateQuizContent = async (config: QuizConfig) => {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    // Xây dựng Prompt dựa trên Input
+    let contentPrompt = "";
+    if (config.textInput) {
+      // Option 2 & 3: Dựa trên văn bản cung cấp
+      contentPrompt = `Dựa trên nội dung văn bản sau:\n"""${config.textInput.slice(0, 30000)}"""\n`;
+    } else {
+      // Option 1: Dựa trên chủ đề
+      contentPrompt = `Chủ đề: "${config.topic}".\nMô tả chi tiết: "${config.description || "Không có"}".\n`;
+    }
+
+    const prompt = `
+    Bạn là một giáo viên chuyên tạo đề thi trắc nghiệm.
+    
+    YÊU CẦU: Tạo một bộ câu hỏi trắc nghiệm (Quiz).
+    ${contentPrompt}
+    
+    CẤU HÌNH:
+    - Số lượng câu: ${config.count} câu.
+    - Độ khó: ${config.difficulty} (Easy: Cơ bản, Medium: Trung bình, Hard: Nâng cao/Chuyên sâu).
+    - Ngôn ngữ: Tiếng Việt.
+
+    OUTPUT JSON FORMAT (Bắt buộc):
+    {
+      "title": "Tên gợi ý cho bộ đề này",
+      "questions": [
+        {
+          "question": "Nội dung câu hỏi?",
+          "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
+          "correctAnswer": "Đáp án đúng (Chép y hệt 1 trong 4 options trên)",
+          "explanation": "Giải thích ngắn gọn tại sao đúng"
+        }
+      ]
+    }
+    `;
+
+    const result = await model.generateContent(prompt);
+    return JSON.parse(result.response.text());
+
+  } catch (error) {
+    console.error("❌ Lỗi AI Generate Quiz:", error);
+    throw error;
+  }
+};
