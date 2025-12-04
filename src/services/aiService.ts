@@ -60,18 +60,64 @@ export const generateFlashcardContent = async (inputWord: string) => {
     throw error;
   }
 };
+export const generateFlashcardsFromText = async (longText: string) => {
+  try {
+    // Cắt ngắn nếu quá dài (Gemini Flash chịu được ~1M token nhưng an toàn vẫn hơn)
+    const truncatedText = longText.slice(0, 30000);
 
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const prompt = `
+    Bạn là chuyên gia ngôn ngữ.
+    Nhiệm vụ: Phân tích văn bản dưới đây và rút trích ra **10 từ vựng quan trọng nhất** (Keywords) để học.
+    
+    Văn bản nguồn:
+    """
+    ${truncatedText}
+    """
+
+    YÊU CẦU OUTPUT:
+    Trả về một JSON Object chứa mảng "cards". Cấu trúc mỗi card y hệt như sau:
+    {
+      "cards": [
+        {
+           "term": "Word 1",
+           "definition": "Định nghĩa tiếng Việt",
+           "phonetic": "/ipa/",
+           "type": "noun/verb...",
+           "examples": [{ "en": "Example sentence", "vi": "Dịch" }],
+           "note": "Mẹo nhớ"
+        }
+      ]
+    }
+    `;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    const response = JSON.parse(cleanedText);
+    return response.cards || []; // Trả về mảng cards
+
+  } catch (error) {
+    console.error("❌ Lỗi Gemini Bulk Generate:", error);
+    throw error;
+  }
+};
 
 // quiz
-// Thêm vào src/services/aiService.ts
+
 
 interface QuizConfig {
   topic?: string;
   description?: string;
-  textInput?: string; // Dùng cho Option 2 & 3 (Nội dung văn bản/file)
+  textInput?: string; // Dùng cho Option 2 & 3
   count: number;
   difficulty: string;
-  language: string; // 'vi'
+  language?: string;
 }
 
 export const generateQuizContent = async (config: QuizConfig) => {
@@ -81,43 +127,58 @@ export const generateQuizContent = async (config: QuizConfig) => {
       generationConfig: { responseMimeType: "application/json" }
     });
 
-    // Xây dựng Prompt dựa trên Input
+    // 1. Xây dựng ngữ cảnh
     let contentPrompt = "";
     if (config.textInput) {
-      // Option 2 & 3: Dựa trên văn bản cung cấp
+      // Cắt ngắn bớt nếu quá dài để tiết kiệm token
       contentPrompt = `Dựa trên nội dung văn bản sau:\n"""${config.textInput.slice(0, 30000)}"""\n`;
     } else {
-      // Option 1: Dựa trên chủ đề
-      contentPrompt = `Chủ đề: "${config.topic}".\nMô tả chi tiết: "${config.description || "Không có"}".\n`;
+      contentPrompt = `Chủ đề chính: "${config.topic}".\nMô tả chi tiết: "${config.description || "Không có"}".\n`;
     }
 
+    // 2. Prompt Đa Năng + Tự động phát hiện ngôn ngữ
     const prompt = `
-    Bạn là một giáo viên chuyên tạo đề thi trắc nghiệm.
+    Bạn là một chuyên gia giáo dục và tạo đề thi trắc nghiệm (Quiz Generator).
     
-    YÊU CẦU: Tạo một bộ câu hỏi trắc nghiệm (Quiz).
+    YÊU CẦU: Tạo một bộ câu hỏi trắc nghiệm chất lượng cao.
     ${contentPrompt}
     
     CẤU HÌNH:
-    - Số lượng câu: ${config.count} câu.
-    - Độ khó: ${config.difficulty} (Easy: Cơ bản, Medium: Trung bình, Hard: Nâng cao/Chuyên sâu).
-    - Ngôn ngữ: Tiếng Việt.
+    - Số lượng: Chính xác ${config.count} câu.
+    - Độ khó: ${config.difficulty} (Easy/Medium/Hard).
+    - Loại câu hỏi: Multiple-choice (4 lựa chọn).
+
+    ----------
+    QUY TẮC NGÔN NGỮ (LANGUAGE RULES - QUAN TRỌNG):
+    1. Hãy tự động phát hiện ngôn ngữ của nội dung đầu vào (văn bản hoặc chủ đề).
+    2. Nếu nội dung đầu vào là Tiếng Anh -> Tạo câu hỏi, đáp án, giải thích hoàn toàn bằng Tiếng Anh.
+    3. Nếu nội dung đầu vào là Tiếng Việt -> Tạo câu hỏi, đáp án, giải thích hoàn toàn bằng Tiếng Việt.
+    4. Nếu là ngôn ngữ khác -> Tạo bằng ngôn ngữ tương ứng.
+    ----------
 
     OUTPUT JSON FORMAT (Bắt buộc):
+    Trả về 1 JSON Object duy nhất, không markdown.
     {
-      "title": "Tên gợi ý cho bộ đề này",
+      "title": "Tên gợi ý cho bộ đề này (Ngôn ngữ tương ứng)",
       "questions": [
         {
           "question": "Nội dung câu hỏi?",
-          "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-          "correctAnswer": "Đáp án đúng (Chép y hệt 1 trong 4 options trên)",
+          "options": ["Lựa chọn A", "Lựa chọn B", "Lựa chọn C", "Lựa chọn D"],
+          "correctAnswer": "Chép Y NGUYÊN nội dung của đáp án đúng vào đây (String matching)",
           "explanation": "Giải thích ngắn gọn tại sao đúng"
         }
       ]
     }
+
+    LƯU Ý: "correctAnswer" phải là một chuỗi ký tự khớp hoàn toàn (chính xác từng chữ cái) với một trong các phần tử trong mảng "options".
     `;
 
     const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
+    const text = result.response.text();
+
+    // Làm sạch JSON trước khi parse
+    const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanedText);
 
   } catch (error) {
     console.error("❌ Lỗi AI Generate Quiz:", error);

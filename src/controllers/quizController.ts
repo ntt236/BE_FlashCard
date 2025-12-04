@@ -93,3 +93,34 @@ export const getQuizById = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Lỗi lấy chi tiết Quiz" });
     }
 };
+
+
+// 4. Cập nhật Quiz (Dùng khi sửa trong Preview)
+export const updateQuiz = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { questions, title } = req.body; // Lấy danh sách câu hỏi mới
+
+        const updatedQuiz = await Quiz.findByIdAndUpdate(
+            id,
+            { questions, title }, // Cập nhật lại mảng questions
+            { new: true }
+        );
+
+        if (!updatedQuiz) return res.status(404).json({ message: "Quiz not found" });
+        res.json(updatedQuiz);
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi cập nhật Quiz" });
+    }
+};
+
+// 5. Xóa Quiz (Dùng khi người dùng thấy AI tạo chán quá muốn xóa luôn)
+export const deleteQuiz = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        await Quiz.findByIdAndDelete(id);
+        res.json({ message: "Đã xóa Quiz" });
+    } catch (error) {
+        res.status(500).json({ message: "Lỗi xóa Quiz" });
+    }
+};

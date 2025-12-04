@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import FlashcardSet from '../models/FlashcardSet';
-import { generateFlashcardContent } from '../services/aiService';
+import { generateFlashcardContent, generateFlashcardsFromText } from '../services/aiService';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { parseFileToText } from '../utils/fileParser';
 
 // ==========================================
 // HELPER: Hàm tính toán stats (Dùng chung)
@@ -181,3 +182,50 @@ export const deleteCards = async (req: Request, res: Response) => {
 
     }
 }
+
+export const uploadFileAndCreateCards = async (req: Request, res: Response) => {
+    const { setId } = req.params;
+    const file = req.file; // File lấy từ Multer
+
+    if (!file) {
+        return res.status(400).json({ message: "Vui lòng upload file" });
+    }
+
+    try {
+        const set = await FlashcardSet.findById(setId);
+        if (!set) return res.status(404).json({ message: "Set not found" });
+
+        // 1. Đọc file thành text
+        console.log("📂 Đang đọc file...");
+        const textContent = await parseFileToText(file);
+
+        if (!textContent.trim()) {
+            return res.status(400).json({ message: "File không có nội dung văn bản" });
+        }
+
+        // 2. Gọi AI tạo danh sách thẻ
+        console.log("🤖 Đang gửi text cho AI xử lý...");
+        const generatedCards = await generateFlashcardsFromText(textContent);
+
+        if (!generatedCards || generatedCards.length === 0) {
+            return res.status(400).json({ message: "AI không tìm thấy từ vựng nào trong file này" });
+        }
+
+        // 3. Lưu vào DB
+        // Thêm status 'new' cho từng thẻ
+        const cardsToSave = generatedCards.map((card: any) => ({
+            ...card,
+            status: 'new'
+        }));
+
+        set.cards.push(...cardsToSave); // Push cả mảng vào
+        await set.save();
+
+        console.log(`✅ Đã thêm ${cardsToSave.length} thẻ từ file.`);
+        res.json({ message: "Thành công", count: cardsToSave.length, set });
+
+    } catch (error: any) {
+        console.error("Upload Error:", error);
+        res.status(500).json({ message: "Lỗi xử lý file", error: error.message });
+    }
+};
