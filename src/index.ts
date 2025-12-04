@@ -4,6 +4,7 @@ import cors from 'cors'
 import mongoose from 'mongoose';
 import flashcardRoutes from "./routes/flashcardRoutes"
 import authRoutes from "./routes/authRoutes"
+import quizRoutes from "./routes/quizRoutes"
 
 dotenv.config()
 const app = express()
@@ -18,7 +19,7 @@ app.use(express.json());
 
 app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/auth', authRoutes)
-
+app.use('/api/quiz', quizRoutes);
 
 mongoose.connect(process.env.MONGO_URI as string)
     .then(() => console.log('✅ MongoDB Connected'))
