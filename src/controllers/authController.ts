@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import jwt from 'jsonwebtoken';
+import { AuthRequest } from '../middleware/authMiddleware';
 
 // Hàm tạo Token nhanh
 const generateToken = (id: string) => {
@@ -66,5 +67,23 @@ export const loginUser = async (req: Request, res: Response) => {
         }
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server' });
+    }
+};
+
+
+export const getMe = async (req: AuthRequest, res: Response) => {
+    try {
+        // req.user được gắn vào từ middleware 'protect'
+        // .select('-password') để không trả về mật khẩu
+        const user = await User.findById(req.user?.id).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server Error" });
     }
 };
