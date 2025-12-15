@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 export const generateFlashcardContent = async (inputWord: string) => {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash-lite",
       generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -66,7 +66,7 @@ export const generateFlashcardsFromText = async (longText: string) => {
     const truncatedText = longText.slice(0, 30000);
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash-lite",
       generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -123,7 +123,7 @@ interface QuizConfig {
 export const generateQuizContent = async (config: QuizConfig) => {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash-lite",
       generationConfig: { responseMimeType: "application/json" }
     });
 
