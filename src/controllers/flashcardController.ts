@@ -3,7 +3,6 @@ import FlashcardSet from '../models/FlashcardSet';
 import { generateFlashcardContent, generateFlashcardsFromText } from '../services/aiService';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { parseFileToText } from '../utils/fileParser';
-
 // ==========================================
 // HELPER: Hàm tính toán stats (Dùng chung)
 // ==========================================
@@ -183,6 +182,32 @@ export const deleteCards = async (req: Request, res: Response) => {
     }
 }
 
+// delete flashCard set
+export const deleteCardSet = async (req: AuthRequest, res: Response) => {
+    try {
+        const { setId } = req.params;
+        const userId = req.user?.id;
+        const deleteSet = await FlashcardSet.findOneAndDelete({
+            _id: setId,
+            ownerId: userId
+        })
+        if (!deleteSet) {
+            return res.status(404).json({ message: "không tìm thấy bộ thẻ cần xóa" })
+        }
+        res.json({ message: "Xóa thành công bộ thẻ", deleteSet: setId })
+    } catch (error) {
+        console.log("🚀 ~ deleteCardSet ~ error:", error)
+        res.status(500).json({ message: "Lỗi server" })
+    }
+}
+
+
+
+
+
+
+
+// upload file tạo thẻ flashcard
 export const uploadFileAndCreateCards = async (req: Request, res: Response) => {
     const { setId } = req.params;
     const file = req.file; // File lấy từ Multer

@@ -5,6 +5,7 @@ import {
     addCardToSet,
     createSet,
     deleteCards,
+    deleteCardSet,
     getFlashcardSetById,
     getFlashcardSets,
     getMyFlashcards,
@@ -24,7 +25,7 @@ router.post('/', protect, createSet);
 router.post('/:setId/cards', protect, addCardToSet);
 router.get('/:setId', protect, getFlashcardSetById);
 router.delete('/:setId/cards/:cardId', protect, deleteCards);
-
+router.delete('/:setId', protect, deleteCardSet);
 // 3. Route Upload (Sử dụng biến upload vừa tạo)
 router.post('/:setId/upload', protect, upload.single('file'), uploadFileAndCreateCards);
 
