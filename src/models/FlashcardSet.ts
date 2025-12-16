@@ -2,14 +2,16 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // Interface cho từng thẻ từ vựng
 export interface IFlashcard {
-  term: string;       // Từ vựng (VD: Hello)
-  definition: string; // Nghĩa (VD: Xin chào)
+  term: string;
+  definition: string; // Nghĩa
   phonetic?: string;  // Phiên âm
-  type?: string;      // Loại từ (noun, verb...)
-  level?: string;     // Mức độ
-  note?: string;      // Ghi chú
-  examples?: Array<{ en?: string; vi?: string }>; // Ví dụ
-  status: 'new' | 'learning' | 'learned'; // Để tính toán cho UI
+  type?: string;      // Loại từ 
+  level?: string;
+  note?: string;
+  examples?: Array<{ en?: string; vi?: string }>;
+  status: 'new' | 'learning' | 'learned';
+  nextReviewDate: Date;
+  box: number;
 }
 
 // Interface cho bộ Flashcard (Map với UI FlashcardSetData)
@@ -36,7 +38,9 @@ const FlashcardSchema = new Schema<IFlashcard>({
       vi: { type: String }
     }
   ],
-  status: { type: String, enum: ['new', 'learning', 'learned'], default: 'new' }
+  status: { type: String, enum: ['new', 'learning', 'learned'], default: 'new' },
+  nextReviewDate: { type: Date, default: Date.now },
+  box: { type: Number, default: 0 }
 });
 
 const FlashcardSetSchema = new Schema<IFlashcardSet>({

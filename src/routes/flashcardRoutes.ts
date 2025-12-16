@@ -9,6 +9,7 @@ import {
     getFlashcardSetById,
     getFlashcardSets,
     getMyFlashcards,
+    reviewFlashcard,
     uploadFileAndCreateCards // <--- Nhớ import hàm mới từ controller
 } from "../controllers/flashcardController";
 import { protect } from "../middleware/authMiddleware";
@@ -23,8 +24,13 @@ router.get('/', getFlashcardSets);
 router.post('/', protect, createSet);
 
 router.post('/:setId/cards', protect, addCardToSet);
+
 router.get('/:setId', protect, getFlashcardSetById);
+
 router.delete('/:setId/cards/:cardId', protect, deleteCards);
+
+router.put('/:setId/cards/:cardId/review', protect, reviewFlashcard);
+
 router.delete('/:setId', protect, deleteCardSet);
 // 3. Route Upload (Sử dụng biến upload vừa tạo)
 router.post('/:setId/upload', protect, upload.single('file'), uploadFileAndCreateCards);

@@ -203,10 +203,6 @@ export const deleteCardSet = async (req: AuthRequest, res: Response) => {
 
 
 
-
-
-
-
 // upload file tạo thẻ flashcard
 export const uploadFileAndCreateCards = async (req: Request, res: Response) => {
     const { setId } = req.params;
@@ -254,3 +250,41 @@ export const uploadFileAndCreateCards = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Lỗi xử lý file", error: error.message });
     }
 };
+
+//review 
+export const reviewFlashcard = async (req: Request, res: Response) => {
+    try {
+        const { setId, cardId } = req.params;
+        const { status } = req.body;
+        const set = await FlashcardSet.findById(setId);
+        if (!set) return res.status(404).json({ message: "Set không tồn tại" });
+
+        const card = set.cards.find((c: any) => c._id.toString() === cardId);
+        if (!card) return res.status(404).json({ message: "Card không tồn tại" });
+
+        //tinh ngay
+        let daysToAdd = 0;
+        if (status === 'learned') {
+            daysToAdd = 3;
+            card.box += 1;
+            card.status = 'learned';
+        } else if (status === "learning") {
+            daysToAdd = 1;
+            card.status = 'learning';
+        } else {
+            daysToAdd = 0;
+            card.box = 0
+            card.status = 'new'
+        }
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + daysToAdd);
+
+        card.nextReviewDate = nextDate
+        await set.save()
+        res.json({ message: "Cap nhat thanh cong", card })
+
+    } catch (error) {
+        console.log("🚀 ~ reviewFlashcard ~ error:", error)
+        res.status(500).json({ message: "Lỗi Server" })
+    }
+}
