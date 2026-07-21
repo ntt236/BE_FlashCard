@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import flashcardRoutes from "./routes/flashcardRoutes"
 import authRoutes from "./routes/authRoutes"
 import quizRoutes from "./routes/quizRoutes"
+import learningPathRoutes from "./routes/learningPathRoutes"
 
 dotenv.config()
 const app = express()
@@ -15,13 +16,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
-
-
 app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/auth', authRoutes)
 app.use('/api/quiz', quizRoutes);
+app.use('/api/learning-paths', learningPathRoutes);
 
-mongoose.connect(process.env.MONGO_URI as string)
+mongoose.connect(process.env.MONGO_URI as string, { family: 4 })
     .then(() => console.log('✅ MongoDB Connected'))
     .catch(err => console.log('❌ DB Error', err));
 
