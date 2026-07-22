@@ -1,13 +1,17 @@
 import express from 'express';
-import { getPaths, createPath, togglePin, deletePath, getPathById, addTopicToPath } from '../controllers/learningPathController';
+import { getPaths, createPath, deletePath, getPathById, addTopicToPath, updatePath } from '../controllers/learningPathController';
+import { isAdmin } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
+// Public routes (user xem lộ trình)
 router.get('/', getPaths);
 router.get('/:id', getPathById);
-router.post('/', createPath);
-router.post('/:id/topics', addTopicToPath);
-router.patch('/:id/pin', togglePin);
-router.delete('/:id', deletePath);
+
+// Admin-only routes
+router.post('/', isAdmin, createPath);
+router.put('/:id', isAdmin, updatePath);
+router.post('/:id/topics', isAdmin, addTopicToPath);
+router.delete('/:id', isAdmin, deletePath);
 
 export default router;

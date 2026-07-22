@@ -3,12 +3,15 @@ import User from '../models/User';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../middleware/authMiddleware';
 
-// Hàm tạo Token nhanh
-const generateToken = (id: string) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET as string, {
-        expiresIn: '30d', // Token sống trong 30 ngày
+// Tạo JWT token (có thể truyền role)
+const generateToken = (id: string, role: string = 'user') => {
+    return jwt.sign({ id, role }, process.env.JWT_SECRET as string, {
+        expiresIn: '30d',
     });
 };
+
+// Helper lấy số ngày từ Date
+const toDateString = (date: Date) => date.toISOString().split('T')[0];
 
 // @desc    Đăng ký user mới
 // @route   POST /api/auth/register
@@ -16,26 +19,23 @@ export const registerUser = async (req: Request, res: Response) => {
     const { username, email, password } = req.body;
 
     try {
-        // 1. Kiểm tra user tồn tại
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'Email này đã được sử dụng' });
         }
 
-        // 2. Tạo user mới (Password sẽ tự hash nhờ middleware ở Bước 2)
-        const user = await User.create({
-            username,
-            email,
-            password,
-        });
+        const user = await User.create({ username, email, password });
 
-        // 3. Trả về info + Token
         if (user) {
             res.status(201).json({
                 _id: user._id,
                 username: user.username,
                 email: user.email,
-                token: generateToken(user._id.toString()), // <--- Quan trọng
+                role: user.role,
+                streak: user.streak,
+                learnedWords: user.learnedWords,
+                pinnedPaths: user.pinnedPaths,
+                token: generateToken(user._id.toString(), user.role),
             });
         } else {
             res.status(400).json({ message: 'Dữ liệu không hợp lệ' });
@@ -45,22 +45,24 @@ export const registerUser = async (req: Request, res: Response) => {
     }
 };
 
-// @desc    Đăng nhập
+// @desc    Đăng nhập user thường
 // @route   POST /api/auth/login
 export const loginUser = async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     try {
-        // 1. Tìm user theo email
         const user: any = await User.findOne({ email });
 
-        // 2. Check password bằng method ta đã viết ở Model
         if (user && (await user.matchPassword(password))) {
             res.json({
                 _id: user._id,
                 username: user.username,
                 email: user.email,
-                token: generateToken(user._id.toString()), // <--- Trả về Token để FE dùng
+                role: user.role,
+                streak: user.streak,
+                learnedWords: user.learnedWords,
+                pinnedPaths: user.pinnedPaths,
+                token: generateToken(user._id.toString(), user.role),
             });
         } else {
             res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
@@ -70,20 +72,94 @@ export const loginUser = async (req: Request, res: Response) => {
     }
 };
 
+// @desc    Đăng nhập Admin (dùng credentials từ .env)
+// @route   POST /api/auth/admin-login
+export const adminLogin = async (req: Request, res: Response) => {
+    const { username, password } = req.body;
 
+    const adminUsername = process.env.ADMIN_USERNAME;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminUsername || !adminPassword) {
+        return res.status(500).json({ message: 'Admin credentials chưa được cấu hình trong server' });
+    }
+
+    if (username === adminUsername && password === adminPassword) {
+        // Admin không có _id trong DB, dùng id đặc biệt
+        const token = generateToken('admin', 'admin');
+        res.json({
+            _id: 'admin',
+            username: adminUsername,
+            email: 'admin@system.local',
+            role: 'admin',
+            token,
+        });
+    } else {
+        res.status(401).json({ message: 'Tài khoản hoặc mật khẩu Admin không đúng' });
+    }
+};
+
+// @desc    Lấy thông tin user hiện tại
+// @route   GET /api/auth/me
 export const getMe = async (req: AuthRequest, res: Response) => {
     try {
-        // req.user được gắn vào từ middleware 'protect'
-        // .select('-password') để không trả về mật khẩu
-        const user = await User.findById(req.user?.id).select('-password');
+        // Admin không có record trong DB
+        if (req.user?.role === 'admin') {
+            return res.json({
+                _id: 'admin',
+                username: process.env.ADMIN_USERNAME || 'admin',
+                email: 'admin@system.local',
+                role: 'admin',
+                streak: 0,
+                learnedWords: 0,
+                pinnedPaths: [],
+            });
+        }
+
+        const user = await User.findById(req.user?.id)
+            .select('-password')
+            .populate('pinnedPaths', 'title category description topics');
 
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({ message: 'User not found' });
         }
 
         res.json(user);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Server Error" });
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Cập nhật streak khi user học bài (gọi sau khi lưu progress)
+// @route   POST /api/auth/streak
+export const updateStreak = async (req: AuthRequest, res: Response) => {
+    try {
+        const user = await User.findById(req.user?.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const today = toDateString(new Date());
+        const lastStudy = user.lastStudyDate ? toDateString(user.lastStudyDate) : null;
+
+        if (lastStudy === today) {
+            // Đã học hôm nay rồi, không tăng streak
+            return res.json({ streak: user.streak, message: 'Already studied today' });
+        }
+
+        // Kiểm tra có phải ngày liên tiếp không
+        const yesterday = toDateString(new Date(Date.now() - 86400000));
+        if (lastStudy === yesterday) {
+            user.streak += 1;
+        } else {
+            // Bỏ ngày → reset
+            user.streak = 1;
+        }
+
+        user.lastStudyDate = new Date();
+        await user.save();
+
+        res.json({ streak: user.streak });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error' });
     }
 };

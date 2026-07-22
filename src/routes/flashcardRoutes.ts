@@ -12,7 +12,7 @@ import {
     reviewFlashcard,
     uploadFileAndCreateCards // <--- Nhớ import hàm mới từ controller
 } from "../controllers/flashcardController";
-import { protect } from "../middleware/authMiddleware";
+import { protect, isAdmin } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -23,9 +23,9 @@ router.get('/my-sets', protect, getMyFlashcards);
 router.get('/', getFlashcardSets);
 router.post('/', protect, createSet);
 
-router.post('/:setId/cards', protect, addCardToSet);
+router.post('/:setId/cards', isAdmin, addCardToSet);
 
-router.get('/:setId', protect, getFlashcardSetById);
+router.get('/:setId', getFlashcardSetById);
 
 router.delete('/:setId/cards/:cardId', protect, deleteCards);
 
